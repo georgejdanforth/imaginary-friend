@@ -1,0 +1,70 @@
+<html>
+<head>
+	<script>
+		const MAX_AMPLITUDE = 255;
+		const audioCtx = new AudioContext();
+		const analyzer = audioCtx.createAnalyser();
+		analyzer.fftSize = 2048;
+		const bufferLength = analyzer.frequencyBinCount;
+
+		(async function() {
+			let stream;
+			try {
+				stream = await navigator.mediaDevices.getUserMedia({
+					audio: true,
+					video: false
+				});
+			} catch (e) {
+				console.error(e);
+				return;
+			}
+
+			const source = audioCtx.createMediaStreamSource(stream);
+			source.connect(analyzer);
+
+			const canvas = document.querySelector('.canvas');
+			const canvasCtx = canvas.getContext('2d');
+
+			function visualize() {
+				const width = canvas.width;
+				const height = canvas.height;
+
+				const dataArray = new Uint8Array(bufferLength);
+
+				canvasCtx.clearRect(0, 0, width, height);
+
+				const draw = function() {
+					requestAnimationFrame(draw);
+					analyzer.getByteFrequencyData(dataArray);
+
+					canvasCtx.fillStyle = 'rgb(0, 0, 0)';
+					canvasCtx.fillRect(0, 0, width, height);
+
+					canvasCtx.lineWidth = 1;
+					canvasCtx.strokeStyle = 'rgb(150, 150, 150)';
+
+					const k = width * Math.log(2) / Math.log(bufferLength);
+
+					for (let i = 0; i < bufferLength; i++) {
+						const x = k * Math.log2(i + 1);
+						const lineLength = (dataArray[i] / MAX_AMPLITUDE) * height;
+						const y = (height - lineLength) / 2;
+
+						canvasCtx.beginPath();
+						canvasCtx.moveTo(x, y);
+						canvasCtx.lineTo(x, y + lineLength);
+						canvasCtx.stroke();
+					}
+				}
+				draw();
+			}
+			visualize();
+		})();
+	</script>
+</head>
+<body>
+	<div>
+		<canvas id="canvas" class="canvas" width="1000" height="500"></canvas>
+	</div>
+</body>
+</html>
